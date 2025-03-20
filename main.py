@@ -64,6 +64,6 @@ while True:
     # cv2.drawContours(img_cv, contours_green, -1, (0, 0, 255), 2)  # Draw green contours in red
     # cv2.drawContours(img_cv, contours_white, -1, (255, 0, 0), 2)  # Draw white contours in blue
     # cv2.imshow("Debug", img_cv)
-    # if cv2.waitKey(1) == ord('q'):  # Press 'q' to quit
-    #     cv2.destroyAllWindows()
-    #     break
+    #if cv2.waitKey(1) == ord('q'):  # Press 'q' to quit
+    #    cv2.destroyAllWindows()
+    #    break
