@@ -1,47 +1,75 @@
+import mss
+import mss.tools
 import numpy as np
-import pyautogui as pag
 import cv2
+from numba import njit, prange
+import win32con, win32api
+import time
 import keyboard
 
+# Define the region of interest (x, y, width, height)
 region = (576, 454, 214, 6)
 
-while True:
-    screenshot = pag.screenshot(region=region)
-    img_np = np.array(screenshot)
-    img_cv = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
-    
-    lower_green = np.array([0, 100, 0])
-    upper_green = np.array([100, 255, 100]) 
-    lower_white = np.array([200, 200, 200])
-    upper_white = np.array([255, 255, 255]) 
+# Pre-calculate the bounding box for mss
+sct_box = {'left': region[0], 'top': region[1], 'width': region[2], 'height': region[3]}
 
-    mask_green = cv2.inRange(img_cv, lower_green, upper_green)
-    mask_white = cv2.inRange(img_cv, lower_white, upper_white)
+# Optimized color range checks using Numba
+@njit(fastmath=True)
+def is_green(pixel):
+    return 0 <= pixel[0] <= 100 and 100 <= pixel[1] <= 255 and 0 <= pixel[2] <= 100
 
-    contours_green, _ = cv2.findContours(mask_green, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    contours_white, _ = cv2.findContours(mask_white, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+@njit(fastmath=True)
+def is_white(pixel):
+    return 200 <= pixel[0] <= 255 and 200 <= pixel[1] <= 255 and 200 <= pixel[2] <= 255
 
+
+
+@njit(parallel=True)
+def process_image(img_np):
+    height, width = img_np.shape[:2]
     white_under_green = False
 
-    for contour_green in contours_green:
-        x_g, y_g, w_g, h_g = cv2.boundingRect(contour_green)
-
-        for contour_white in contours_white:
-            x_w, y_w, w_w, h_w = cv2.boundingRect(contour_white)
-
-            if (x_g <= x_w <= x_g + w_g) and (y_w > y_g + h_g):
-                center_x_green = x_g + w_g // 2
-                center_x_white = x_w + w_w // 2
-
-                tolerance = 5
-                if abs(center_x_green - center_x_white) <= tolerance:
-                    white_under_green = True
-                    break 
-
+    for y in prange(height):
+        for x in range(width):
+            if is_green(img_np[y, x]):
+                for y2 in range(y + 1, height):  # Start searching for white below green
+                    for x2 in range(max(0, x - 5), min(width, x + 6)): # Limit search range
+                        if is_white(img_np[y2, x2]):
+                            white_under_green = True
+                            break
+                    if white_under_green:
+                        break
+            if white_under_green:
+                break
         if white_under_green:
             break
 
+    return white_under_green
 
-    if white_under_green:
-        keyboard.press('space')
-        print('SPACE')
+
+#def press_space():
+#    win32api.keybd_event(win32con.VK_SPACE, 0, 0, 0)
+#    time.sleep(0.01)  # Short delay, adjust as needed
+#    win32api.keybd_event(win32con.VK_SPACE, 0, win32con.KEYEVENTF_KEYUP, 0)
+
+
+def main():
+    with mss.mss() as sct:
+        while True:
+            pressed=False
+            # Capture the screen region quickly
+            sct_img = sct.grab(sct_box)
+            img_np = np.array(sct_img, dtype=np.uint8)[:, :, :3]  # Keep only RGB, discard alpha
+            
+            if process_image(img_np) and not(pressed):
+                keyboard.send('space')
+                print('SPACE')
+                pressed=True
+                time.sleep(5)
+                pressed=False
+
+            # Reduce CPU usage when not detecting
+            #time.sleep(0.01)  # You can add a small delay if needed, but keep it very short
+
+if __name__ == '__main__':
+    main()
