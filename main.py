@@ -1,14 +1,12 @@
 import mss
 import mss.tools
 import numpy as np
-import cv2
 from numba import njit, prange
-import win32con, win32api
 import time
 import keyboard
 
 # Define the region of interest (x, y, width, height)
-region = (576, 454, 214, 6)
+region = (528, 484, 310, 9)
 
 # Pre-calculate the bounding box for mss
 sct_box = {'left': region[0], 'top': region[1], 'width': region[2], 'height': region[3]}
@@ -45,12 +43,6 @@ def process_image(img_np):
             break
 
     return white_under_green
-
-
-#def press_space():
-#    win32api.keybd_event(win32con.VK_SPACE, 0, 0, 0)
-#    time.sleep(0.01)  # Short delay, adjust as needed
-#    win32api.keybd_event(win32con.VK_SPACE, 0, win32con.KEYEVENTF_KEYUP, 0)
 
 
 def main():
